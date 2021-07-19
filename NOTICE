@@ -1,0 +1,17 @@
+raster2vector includes the following imports:
+
+- CommandLine and EnumNameMap
+	- Header-only, dependency-free
+	- Same author, same license as raster2vector
+	- Apache 2.0 w/LLVM exception clause
+	- LICENSE file included with import
+- stb_image
+	- Header-only, dependency-free
+	- https://github.com/nothings/stb
+	- Public domain and MIT dual license
+	- Original LICENSE file included with import
+- simple_svg
+	- Header-only, dependency-free
+	- https://github.com/adishavit/simple-svg
+	- BSD 3-Clause license
+	- Original LICENSE file included with import
