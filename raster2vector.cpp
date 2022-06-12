@@ -6,12 +6,9 @@
 * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 */
 
-#define STB_IMAGE_IMPLEMENTATION
-#define STBI_FAILURE_USERMSG
-#include "stb_image.h"
-
 #include "simple_svg_1.0.0.hpp"
 
+#include "RasterImage.h"
 #include "CommandLine.h"
 
 #include <memory>
@@ -57,84 +54,6 @@ struct Options : CommandLine::Parser
     }
 } g_opts;
 
-class RasterImage
-{
-public:
-    using PixData_t = unsigned char;
-
-private:
-    int width{};
-    int height{};
-    int channels{};
-    std::unique_ptr<PixData_t[], decltype(&stbi_image_free)> img{ nullptr, stbi_image_free };
-    std::string failureMessage;
-
-public:
-    RasterImage() = default;
-
-    RasterImage(RasterImage&& other) noexcept = default;
-    RasterImage& operator=(RasterImage&& other) noexcept = default;
-
-    RasterImage(char const* inputFile)
-        : img(stbi_load(inputFile, &width, &height, &channels, 0), stbi_image_free)
-        , failureMessage(img ? std::string{} : stbi_failure_reason())
-    {
-    }
-
-    RasterImage(std::string const& inputFile) : RasterImage(inputFile.c_str()) {}
-
-    bool Valid() const noexcept { return bool(img); }
-
-    // Message from an attempt to load that failed.
-    std::string const& FailureReason() const noexcept { return failureMessage; }
-
-    int Width() const noexcept { return width; }
-    int Height() const noexcept { return height; }
-    int ChannelCount() const noexcept { return channels; }
-
-    bool HasColor() const noexcept { return channels >= 3; }
-    bool HasAlpha() const noexcept { return channels == 2 || channels == 4; }
-
-    PixData_t* PixelNative(int row, int col) noexcept
-    {
-        int index = row * width + col;
-        return &img[index * channels];
-    };
-
-    PixData_t const* PixelNative(int row, int col) const noexcept
-    {
-        int index = row * width + col;
-        return &img[index * channels];
-    };
-
-    struct RGBA
-    {
-        uint8_t red;
-        uint8_t green;
-        uint8_t blue;
-        uint8_t alpha;
-    };
-
-    RGBA PixelRGBA(int row, int col) const noexcept
-    {
-        auto* p = PixelNative(row, col);
-        switch (channels)
-        {
-        case 1: // gray
-            return RGBA{ p[0], p[0], p[0], 0xFF };
-        case 2: // gray, alpha
-            return RGBA{ p[0], p[0], p[0], p[1] };
-        case 3: // red, green, blue
-            return RGBA{ p[0], p[1], p[2], 0xFF };
-        case 4: // red, green, blue, alpha
-            return RGBA{ p[0], p[1], p[2], p[3] };
-        default:
-            // Undefined behavior
-            return RGBA{};
-        }
-    };
-};
-
 svg::Document RasterPixelsToSvg(RasterImage const& img, std::string const& outputFile)
 {
     using namespace svg;
@@ -152,13 +71,13 @@ svg::Document RasterPixelsToSvg(RasterImage const& img, std::string const& outpu
     {
         for (int c = 0; c < img.Width(); ++c)
         {
-            auto pixelColor = img.PixelRGBA(r, c);
+            auto pixelColor = img.GetPixelRGBA(r, c);
 
             // simple-svg library doesn't support alpha, just fully-transparent.
             // Force any pixels that aren't fully opaque to be transparent.
-            Color color = pixelColor.alpha < 0xFF
+            Color color = pixelColor.a < 0xFF
                 ? Color::Transparent
-                : Color(pixelColor.red, pixelColor.green, pixelColor.blue);
+                : Color(pixelColor.r, pixelColor.g, pixelColor.b);
 
             Polygon pixel(Fill(color), Stroke(g_opts.strokeWidth, Color::Black));
             pixel
